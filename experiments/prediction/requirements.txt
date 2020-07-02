@@ -1,0 +1,3 @@
+git+https://github.com/andnp/RlGlue@0.2#egg=RlGlue
+
+matplotlib>=2.2.3

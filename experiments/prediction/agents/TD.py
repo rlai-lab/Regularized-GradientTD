@@ -18,6 +18,5 @@ class TD:
 
         self.w = self.w + self.alpha * rho * delta * x
 
-    def value(self, x):
-        # handle the case where x is a state*feature matrix
-        return np.dot(x, self.w)
+    def getWeights(self):
+        return self.w
