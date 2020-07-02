@@ -24,12 +24,6 @@ class Collector:
 
         self.run_data[name] = arr
 
-    def collectAll(self, name, values):
-        for v in values:
-            self.collect(name, v)
-
-        self.reset()
-
     def getStats(self, name):
         arr = self.all_data[name]
 

@@ -104,7 +104,7 @@ for run in range(RUNS):
             })
 
             # build an "agent" which selects actions according to the behavior
-            # and tries to estimate according the to the target policy
+            # and tries to estimate according to the target policy
             agent = RlGlueCompatWrapper(learner, behavior, target, rep.encode)
 
             # build the experiment runner
