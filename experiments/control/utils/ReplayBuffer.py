@@ -19,6 +19,7 @@ class ReplayBuffer:
             self.buffer.append(args)
         else:
             self.buffer[self.location] = args
+
         self.location = (self.location + 1) % self.buffer_size
 
     def sample(self, batch_size):

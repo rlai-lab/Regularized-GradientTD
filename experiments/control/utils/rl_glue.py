@@ -3,6 +3,7 @@ import torch
 from utils.torch import device, toNP
 
 # stores the previous state for 1-step bootstrapping methods (all methods in this project)
+# casts all observations into torch tensors before storing so that we don't cast the same data multiple times (really important when running on GPU)
 # this wrapper allows easy API compatibility with RLGlue, while allowing the learning code to remain small and simple (the complexity due to bookkeeping is pushed into this class)
 class RlGlueCompatWrapper(BaseAgent):
     def __init__(self, agent, gamma):
@@ -29,6 +30,7 @@ class RlGlueCompatWrapper(BaseAgent):
         self.x = xp
         self.a = self.agent.selectAction(xp)
 
+        # make sure the environment is not operating on a pytorch tensor
         return toNP(self.a)
 
     # called on the terminal step of the episode

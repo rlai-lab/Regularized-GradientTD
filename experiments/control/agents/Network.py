@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as f
-from utils.torch import device
 
 class Network(nn.Module):
     def __init__(self, input_size, h1_size, h2_size, output_size):

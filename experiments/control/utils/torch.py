@@ -6,7 +6,7 @@ device = torch.device("cpu")
 
 batch = namedtuple(
     'batch',
-    'states, nterm_next_states, actions, rewards, gamma, is_terminals, is_non_terminals, size'
+    'states, nterm_sp, actions, rewards, gamma, term, nterm, size'
 )
 
 def getBatchColumns(samples):
