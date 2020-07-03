@@ -12,7 +12,7 @@ from utils.rl_glue import RlGlueCompatWrapper
 
 RUNS = 10
 EPISODES = 100
-LEARNERS = [QC, QC, QLearning]
+LEARNERS = [QRC, QC, QLearning]
 
 COLORS = {
     'QLearning': 'blue',
