@@ -56,7 +56,7 @@ for run in range(RUNS):
             glue.total_reward = 0
             glue.runEpisode(max_steps=1000)
 
-            print(episode, glue.num_steps)
+            print(Learner.__name__, run, episode, glue.num_steps)
 
             collector.collect(Learner.__name__, glue.total_reward)
 
@@ -73,5 +73,5 @@ for Learner in LEARNERS:
     data = collector.getStats(name)
     plot(ax, data, label=name, color=COLORS[name])
 
-plt.show()
 plt.legend()
+plt.show()
