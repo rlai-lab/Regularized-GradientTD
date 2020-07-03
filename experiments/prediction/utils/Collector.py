@@ -1,5 +1,9 @@
 import numpy as np
 
+# A data collector utility class
+# makes it easy to grab arbitrary data during the execution of an agent
+# data is indexed by a key given by the user at collection time,
+# then is aggregated whenever `reset()` is called
 class Collector:
     def __init__(self):
         self.run_data = {}

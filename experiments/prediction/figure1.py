@@ -1,12 +1,13 @@
 import numpy as np
 
+# source found at: https://github.com/andnp/RlGlue
 from RlGlue import RlGlue
 from utils.Collector import Collector
 from utils.policies import actionArrayToPolicy
 from utils.rl_glue import RlGlueCompatWrapper
 from utils.errors import buildRMSPBE
 
-from environments.RandomWalk import RandomWalk, Tabular, Dependent, Inverted
+from environments.RandomWalk import RandomWalk, TabularRep, DependentRep, InvertedRep
 from agents.TD import TD
 
 # --------------------------------
@@ -20,7 +21,7 @@ PROBLEMS = [
     # 5-state random walk environment with tabular features
     {
         'env': RandomWalk,
-        'representation': Tabular,
+        'representation': TabularRep,
         # go LEFT 40% of the time
         'target': actionArrayToPolicy([0.4, 0.6]),
         # take each action equally
@@ -35,7 +36,7 @@ PROBLEMS = [
     # 5-state random walk environment with dependent features
     {
         'env': RandomWalk,
-        'representation': Dependent,
+        'representation': DependentRep,
         # go LEFT 40% of the time
         'target': actionArrayToPolicy([0.4, 0.6]),
         # take each action equally
@@ -50,7 +51,7 @@ PROBLEMS = [
     # 5-state random walk environment with inverted features
     {
         'env': RandomWalk,
-        'representation': Inverted,
+        'representation': InvertedRep,
         # go LEFT 40% of the time
         'target': actionArrayToPolicy([0.4, 0.6]),
         # take each action equally
@@ -108,11 +109,15 @@ for run in range(RUNS):
             agent = RlGlueCompatWrapper(learner, behavior, target, rep.encode)
 
             # build the experiment runner
+            # ties together the agent and environment
+            # and allows executing the agent-environment interface from Sutton-Barto
             glue = RlGlue(agent, env)
 
-            # start the episode
+            # start the episode (env produces a state then agent produces an action)
             glue.start()
             for step in range(problem['steps']):
+                # interface sends action to env and produces a next-state and reward
+                # then sends the next-state and reward to the agent to make an update
                 _, _, _, terminal = glue.step()
 
                 # when we hit a terminal state, start a new episode
@@ -123,7 +128,10 @@ for run in range(RUNS):
                 w = learner.getWeights()
                 rmspbe = RMSPBE(w)
 
-                collector.collect(f'{Env.__name__}-{Rep.__name__}-{Learner.__name__}', rmspbe)
+                #  create a unique key to store the data for this env/representation/agent tuple
+                data_key = f'{Env.__name__}-{Rep.__name__}-{Learner.__name__}'
+                # store the data in the "collector" until we need it for plotting
+                collector.collect(data_key, rmspbe)
 
             # tell the data collector we're done collecting data for this env/learner/rep combination
             collector.reset()

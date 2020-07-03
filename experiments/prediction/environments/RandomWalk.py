@@ -59,11 +59,24 @@ class RandomWalk(BaseEnvironment):
         R[0] = pl * -1
         R[N-1] = pr
 
+        # TODO: use np.linalg.matrix_power to compute this for chains of arbitrary length.
+        # right now only handles 5-state chains (which is fine for this project)
         D = np.diag([0.111111, 0.222222, 0.333333, 0.222222, 0.111111, 0])
 
         return X, P, R, D
 
-class Inverted:
+# -------------------------------------------
+# Build feature reps from Sutton et al., 2009
+# -------------------------------------------
+
+# Generates a representation like:
+# [[ 0, 1, 1, 1, 1 ],
+#  [ 1, 0, 1, 1, 1 ],
+#  [ 1, 1, 0, 1, 1 ],
+#  [ 1, 1, 1, 0, 1 ],
+#  [ 1, 1, 1, 1, 0 ]]
+# then normalizes the feature vectors for each state
+class InvertedRep:
     def __init__(self, N = 5):
         m = np.ones((N, N)) - np.eye(N)
 
@@ -76,7 +89,13 @@ class Inverted:
     def features(self):
         return self.map.shape[1]
 
-class Tabular:
+# Generates a representation like:
+# [[ 1, 0, 0, 0, 0 ],
+#  [ 0, 1, 0, 0, 0 ],
+#  [ 0, 0, 1, 0, 0 ],
+#  [ 0, 0, 0, 1, 0 ],
+#  [ 0, 0, 0, 0, 1 ]]
+class TabularRep:
     def __init__(self, N = 5):
         m = np.eye(N)
 
@@ -89,7 +108,14 @@ class Tabular:
     def features(self):
         return self.map.shape[1]
 
-class Dependent:
+# Generates a representation like:
+# [[ 1, 0, 0 ],
+#  [ 1, 1, 0 ],
+#  [ 0, 1, 0 ],
+#  [ 0, 1, 1 ],
+#  [ 0, 0, 1 ]]
+# then normalizes the feature vectors for each state
+class DependentRep:
     def __init__(self, N = 5):
         nfeats = int(N // 2 + 1)
         self.map = np.zeros((N + 1, nfeats))
