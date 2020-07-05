@@ -2,7 +2,7 @@
 
 ### [Paper](https://arxiv.org/abs/2007.00611) | [Documentation](#library-documentation) | [Experiments](#experiments)
 
-- Sina Ghiassian* [[github](https://github.com/sinaghiassian)]
+- Sina Ghiassian* [[github](https://github.com/sinaghiassian) | [website](https://sinaghiassian.github.io/)]
 - Andrew Patterson* [[github](https://github.com/andnp) | [website](https://andnp.github.io) | [scholar](https://scholar.google.ca/citations?user=jd2nCqYAAAAJ)]
 - Shivam Garg [[github](https://github.com/svmgrg) | [website](https://svmgrg.github.io/)]
 - Dhawal Gupta [[github](https://github.com/dhawgupta) | [website](https://dhawgupta.github.io/) | [scholar](https://scholar.google.ca/citations?user=n1Lsp_8AAAAJ)]
