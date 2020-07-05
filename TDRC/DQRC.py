@@ -1,84 +1,120 @@
 import torch
+import numpy as np
 import torch.nn.functional as f
-from algorithms.BaseLearning import BaseLearning
-from utils import getBatchColumns, device
+from TDRC.utils import getBatchColumns
 
-class DQRC(BaseLearning):
-    def __init__(self, parameters):
-        super().__init__(parameters)
-        self.beta = parameters['beta']
-        self.num_actions = parameters['num_actions']
-        self.num_features = self.policy_net.h1_size
-        self.h = torch.zeros(self.num_actions, self.num_features, requires_grad=False).to(device)
-        self.m_t = torch.zeros(self.num_actions, self.num_features, requires_grad=False).to(device)
-        self.v_t = torch.zeros(self.num_actions, self.num_features, requires_grad=False).to(device)
-        self.eps = 1e-8
-        self.beta_1 = 0.99
-        self.beta_2 = 0.999
-        self.step = 0
+class DQRC:
+    def __init__(self, features, actions, policy_net, target_net, optimizer, params, device=None):
+        self.features = features
+        self.actions = actions
+        self.params = params
+        self.device = device
+        self.policy_net = policy_net
+        self.target_net = target_net
+        self.optimizer = optimizer
 
-    def update(self, sample):
-        self.step += 1
-        batch = getBatchColumns(sample)
+        # regularization parameter
+        self.alpha = params['alpha']
+        self.epsilon = params['epsilon']
+        self.beta = params['beta']
 
-        q_s = self.policy_net(batch.states)
-        q_s_a = q_s.gather(1, batch.actions)
-        x_s = self.policy_net.last_features
+        # secondary weights optimization parameters
+        self.beta_1 = params.get('beta_1', 0.99)
+        self.beta_2 = params.get('beta_2', 0.999)
+        self.eps = params.get('eps', 1e-8)
 
-        q_sp_ap = torch.zeros(len(sample), 1, device=device)
-        if batch.nterm_next_states.shape[0] > 0:
-            q_sp_ap[batch.is_non_terminals] = self.target_net(batch.nterm_next_states).max(1).values.unsqueeze(1)
+        # learnable parameters for secondary weights
+        self.h = torch.zeros(self.actions, features, requires_grad=False).to(device)
+        # ADAM optimizer parameters for secondary weights
+        self.v = torch.zeros(self.actions, features, requires_grad=False).to(device)
+        self.m = torch.zeros(self.actions, features, requires_grad=False).to(device)
 
-        target = batch.rewards + self.gamma * q_sp_ap.detach()
-        td_loss = 0.5 * f.mse_loss(target, q_s_a)
+    def selectAction(self, x):
+        # take a random action about epsilon percent of the time
+        if np.random.rand() < self.epsilon:
+            a = np.random.randint(self.actions)
+            return a
 
+        # otherwise take a greedy action
+        q_s, _ = self.policy_net(x)
+        return q_s.argmax().detach().cpu().numpy()
+
+    def updateNetwork(self, samples):
+        # organize the mini-batch so that we can request "columns" from the data
+        # e.g. we can get all of the actions, or all of the states with a single call
+        batch = getBatchColumns(samples)
+
+        # compute Q(s, a) for each sample in mini-batch
+        Qs, x = self.policy_net(batch.states)
+        Qsa = Qs.gather(1, batch.actions).squeeze()
+
+        # by default Q(s', a') = 0 unless the next states are non-terminal
+        Qspap = torch.zeros(batch.size, device=self.device)
+
+        # if we don't have any non-terminal next states, then no need to bootstrap
+        if batch.nterm_sp.shape[0] > 0:
+            Qsp, _ = self.target_net(batch.nterm_sp)
+
+            # bootstrapping term is the max Q value for the next-state
+            # only assign to indices where the next state is non-terminal
+            Qspap[batch.nterm] = Qsp.max(1).values
+
+
+        # compute the empirical MSBE for this mini-batch and let torch auto-diff to optimize
+        # don't worry about detaching the bootstrapping term for semi-gradient Q-learning
+        # the target network handles that
+        target = batch.rewards + batch.gamma * Qspap.detach()
+        td_loss = 0.5 * f.mse_loss(target, Qsa)
+
+        # compute E[\delta | x] ~= <h, x>
         with torch.no_grad():
-            # batch_size * num_actions number of delta_hats
-            delta_hats = torch.matmul(x_s, self.h.t())
+            delta_hats = torch.matmul(x, self.h.t())
             delta_hat = delta_hats.gather(1, batch.actions)
 
-        correction_loss = torch.mean(self.gamma * delta_hat * q_sp_ap)
+        # the gradient correction term is gamma * <h, x> * \nabla_w Q(s', a')
+        # to compute this gradient, we use pytorch auto-diff
+        correction_loss = torch.mean(batch.gamma * delta_hat * Qspap)
 
+        # make sure we have no gradients left over from previous update
         self.optimizer.zero_grad()
         self.target_net.zero_grad()
+
+        # compute the entire gradient of the network using only the td error
         td_loss.backward()
 
-        # there is no gradient if there are no next states
-        if batch.nterm_next_states.shape[0] > 0:
+        # if we have non-terminal states in the mini-batch
+        # the compute the correction term using the gradient of the *target network*
+        if batch.nterm_sp.shape[0] > 0:
             correction_loss.backward()
 
-        # add the gradients from the target network over to the policy network
+        # add the gradients of the target network for the correction term to the gradients for the td error
         for (policy_param, target_param) in zip(self.policy_net.parameters(), self.target_net.parameters()):
             policy_param.grad.add_(target_param.grad)
 
+        # update the *policy network* using the combined gradients
         self.optimizer.step()
 
-        # tell pytorch to not track the state of any of these
-        # frees up a little bit of memory and also lets us be certain that no gradients are happening due to h
+        # update the secondary weights using a *fixed* feature representation generated by the policy network
         with torch.no_grad():
-            delta = target - q_s_a
-            dh = (delta - delta_hat) * x_s
+            delta = target - Qsa
+            dh = (delta - delta_hat) * x
 
-            for a in range(self.num_actions):
+            # compute the update for each action independently
+            # assume that there is a separate `h` vector for each individual action
+            for a in range(self.actions):
                 mask = (batch.actions == a).squeeze(1)
 
-                # if this action was never taken in the batch
-                # then just skip it
+                # if this action was never taken in this mini-batch
+                # then skip the update for this action
                 if mask.sum() == 0:
                     continue
 
-                # update is the derivative of mean-squared error
-                # plus the regularizer
+                # the update for `h` minus the regularizer
                 h_update = dh[mask].mean(0) - self.beta * self.h[a]
 
-                # ADAM optimizer with bias correction
-                self.v_t[a] = self.beta_2 * self.v_t[a] + (1 - self.beta_2) * (h_update**2)
-                self.m_t[a] = self.beta_1 * self.m_t[a] + (1 - self.beta_1) * h_update
+                # ADAM optimizer
+                # keep a separate set of weights for each action here as well
+                self.v[a] = self.beta_2 * self.v[a] + (1 - self.beta_2) * (h_update**2)
+                self.m[a] = self.beta_1 * self.m[a] + (1 - self.beta_1) * h_update
 
-                m_t = self.m_t[a] / (1 - self.beta_1**self.step)
-                v_t = self.v_t[a] / (1 - self.beta_2**self.step)
-
-                self.h[a] = self.h[a] + self.alpha_h * m_t / (torch.sqrt(v_t) + self.eps)
-
-        tde = target - q_s_a
-        return tde.detach().abs().cpu().squeeze().tolist(), self.h.norm().cpu().tolist(), q_s.detach().abs().max().cpu().tolist()
+                self.h[a] = self.h[a] + self.alpha * self.m[a] / (torch.sqrt(self.v[a]) + self.eps)
