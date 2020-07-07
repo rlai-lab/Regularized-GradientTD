@@ -14,7 +14,7 @@ This repository serves three purposes:
 **(1)** to provide code for running our proposed algorithms as benchmarks,
 **(2)** to provide a heavily cleaned-up version of the code we used in the experiments for reproducibility, and
 **(3)** to provide an easily readable and concrete demonstration of our empirical methodology through code.
-In the `TDRC/` folder, you will find fairly abstract implementations of each of the proposed algorithms, intended to be important and extended for benchmarking.
+In the `TDRC/` folder, you will find fairly abstract implementations of each of the proposed algorithms, intended to be imported and extended for benchmarking.
 Examples of how to use this library functionality can be found in the `examples/` directory.
 The `experiments/` directory contains the code for reproducing the most important figures in the paper, which can be easily extended to reproduce any of the figures in the paper.
 
