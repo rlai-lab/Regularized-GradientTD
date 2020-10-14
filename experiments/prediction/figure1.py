@@ -111,9 +111,9 @@ PROBLEMS = [
         'env': Baird,
         'representation': BairdRep,
         # go LEFT 40% of the time
-        'target': actionArrayToPolicy([6/7, 1/7]),
+        'target': actionArrayToPolicy([0., 1.]),
         # take each action equally
-        'behavior': actionArrayToPolicy([0., 1.]),
+        'behavior': actionArrayToPolicy([6/7, 1/7]),
         'starting_condition': np.array([1, 1, 1, 1, 1, 1, 1, 10]),
         'gamma': 0.99,
         'steps': 20000,
